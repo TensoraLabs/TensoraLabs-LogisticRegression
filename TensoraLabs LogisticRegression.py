@@ -4,6 +4,8 @@ from sklearn.metrics import accuracy_score
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import joblib
+import io
 
 st.title('TensoraLabs - Logistic Regression')
 st.write('Turning ideas into reality.')
@@ -43,6 +45,17 @@ if dataset is not None:
         st.session_state.X_columns = X.columns.tolist()
         st.session_state.target_categories = y.unique().tolist()
 
+        joblib.dump((model, st.session_state.X_columns), 'logistic_model.pkl')
+        buffer = io.BytesIO()
+        joblib.dump((model, st.session_state.X_columns), buffer)
+        buffer.seek(0)
+        st.download_button(
+            label="📥 Download Trained Logistic Regression Model",
+            data=buffer,
+            file_name="logistic_model.pkl",
+            mime="application/octet-stream"
+        )
+
         fig, ax = plt.subplots()
         ax.scatter(train_x.iloc[:, 0], train_y, color='blue', label='Actual Data')
         ax.plot(train_x.iloc[:, 0], model.coef_[0][0] * train_x.iloc[:, 0] + model.intercept_[0], color='red', label='Fit Line')
@@ -60,7 +73,6 @@ if dataset is not None:
 
         st.info("Model Trained Successfully!")
 
-
     if st.session_state.model:
         st.header("Make Predictions")
 
@@ -74,7 +86,13 @@ if dataset is not None:
         if st.button("Predict"):
             input_df = pd.DataFrame([user_input])
             input_enc = pd.get_dummies(input_df)
-            pred = st.session_state.model.predict(input_enc)[0]
 
+            _, trained_columns = joblib.load('logistic_model.pkl')
+            for col in trained_columns:
+                if col not in input_enc.columns:
+                    input_enc[col] = 0
+            input_enc = input_enc[trained_columns]
+
+            pred = st.session_state.model.predict(input_enc)[0]
             label = pred
             st.success(f"Prediction: {label}")
